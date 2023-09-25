@@ -52,22 +52,21 @@ void env_reader::create_pair(std::string* const buffer, env_pair*& pair)
     pair->key = new env_key();
     pair->key->key = buffer;
     pair->value = new env_value();
-
     pair->value->value = buffer;
 }
 
 int env_reader::read_pairs(std::istream& file, std::vector<env_pair*>* pairs)
 {
     int count = 0;
-    const auto buffer = new std::string();
+    auto buffer = std::string();
 
 
     auto expect_more = true;
     while (expect_more)
     {
-        buffer->clear();
+        buffer.clear();
         env_pair* pair;
-        create_pair(buffer, pair);
+        create_pair(&buffer, pair);
         const auto result = read_pair(file, pair);
         switch (result)
         {
@@ -82,8 +81,74 @@ int env_reader::read_pairs(std::istream& file, std::vector<env_pair*>* pairs)
             expect_more = false;
         case fail:
         case empty:
-            delete pair->key->key;
+            if (pair->key->key == &buffer)
+            {
+                pair->key->key = nullptr;
+            }
             delete pair->key;
+            if (pair->value->value == &buffer)
+            {
+                pair->value->value = nullptr;
+            }
+            delete pair->value;
+            delete pair;
+        }
+    }
+
+
+    return count;
+}
+
+void env_reader::delete_pair(const env_pair* pair)
+{
+    delete pair->key;
+    delete pair->value;
+    delete pair;
+}
+
+void env_reader::delete_pairs(const std::vector<env_pair*>* pairs)
+{
+    for (auto env_pair : *pairs)
+    {
+        delete_pair(env_pair);
+    }
+}
+
+int env_reader::read_pairs(std::istream& file, std::map<std::string, env_pair*>* map)
+{
+    int count = 0;
+    auto buffer = std::string();
+
+
+    auto expect_more = true;
+    while (expect_more)
+    {
+        buffer.clear();
+        env_pair* pair;
+        create_pair(&buffer, pair);
+        const auto result = read_pair(file, pair);
+        switch (result)
+        {
+        case end_of_stream_value:
+            expect_more = false;
+        case comment_encountered:
+        case success:
+            map->insert(std::pair<std::string, env_pair*>(*pair->key->key, pair));
+            count++;
+            continue;
+        case end_of_stream_key:
+            expect_more = false;
+        case fail:
+        case empty:
+            if (pair->key->key == &buffer)
+            {
+                pair->key->key = nullptr;
+            }
+            delete pair->key;
+            if (pair->value->value == &buffer)
+            {
+                pair->value->value = nullptr;
+            }
             delete pair->value;
             delete pair;
         }
@@ -398,7 +463,7 @@ bool env_reader::read_next_char(env_value* value, const char key_char)
 
         return true;
     }
- 
+
     if (value->double_quote_streak > 0)
     {
         return walk_double_quotes(value);
@@ -476,7 +541,12 @@ env_reader::read_result env_reader::read_value(std::istream& file, env_value* va
         {
             do
             {
-                key_char = file.get();
+                const std::istream::int_type tmp_int = file.get();
+                if (tmp_int < 0)
+                {
+                    break;
+                }
+                key_char = static_cast<char>(tmp_int);
                 if (!file.good())
                 {
                     break;
@@ -487,6 +557,17 @@ env_reader::read_result env_reader::read_value(std::istream& file, env_value* va
         break;
     }
     return success;
+}
+
+env_reader::finalize_result env_reader::finalize_value(const env_pair* pair, std::map<std::string, env_pair*>* map)
+{
+    if (pair->value->interpolation_index == 0)
+    {
+        pair->value->is_already_interpolated = true;
+        pair->value->is_being_interpolated = false;
+        return copied;
+    }
+    const auto buffer = new std::string(*pair->value->value);
 }
 
 env_reader::finalize_result env_reader::finalize_value(const env_pair* pair, std::vector<env_pair*>* pairs)
@@ -539,4 +620,5 @@ env_reader::finalize_result env_reader::finalize_value(const env_pair* pair, std
             break;
         }
     }
+    return interpolated;
 }

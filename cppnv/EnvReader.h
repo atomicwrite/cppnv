@@ -1,6 +1,7 @@
 ﻿#pragma once
 
 #include <istream>
+#include <map>
 #include <vector>
 
 #include "EnvPair.h"
@@ -31,8 +32,12 @@ private:
     
 
 public:
+    static finalize_result finalize_value(const env_pair* pair, std::map<std::string, env_pair *>* map);
     static finalize_result finalize_value(const env_pair* pair, std::vector<env_pair*>* pairs);
     static read_result read_pair(std::istream& file, const env_pair* pair);
     static void create_pair(std::string* buffer, env_pair*& pair);
     static int read_pairs(std::istream& file, std::vector<env_pair*>* pairs);
+    static void delete_pair(const env_pair* pair);
+    static void delete_pairs(const std::vector<env_pair*>* pairs);
+    static int read_pairs(  std::istream& file, std::map<std::string, env_pair *>* map);
 };

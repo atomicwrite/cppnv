@@ -1,8 +1,17 @@
 ﻿#pragma once
 #include <string>
 
-struct env_key
+class env_key
 {
-  std::string *key;
-  int key_index = 0;
+public:
+    std::string* key;
+    /**
+     * \brief The current index in the buffer key
+     */
+    int key_index = 0;
+
+    ~env_key()
+    {
+        delete key;
+    }
 };
