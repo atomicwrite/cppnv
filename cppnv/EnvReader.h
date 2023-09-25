@@ -19,12 +19,13 @@ private:
     static int get_white_space_offset_left(const std::string* value, const   variable_position* interpolation);
 
     static int get_white_space_offset_right(const std::string* value, const   variable_position* interpolation);
-    static bool process_possible_control_character(env_value* value, const char key_Char);
-    static bool walk_back_slashes(env_value* value, char key_char);
+    static bool process_possible_control_character(env_value* value, const char key_char);
+    static void walk_back_slashes(env_value* value );
     static void close_variable(env_value* value);
     static void open_variable(env_value* value);
     static bool walk_double_quotes(env_value* value);
     static bool walk_single_quotes(env_value* value);
+    static void replace_to_buffer(env_value* value, char key_char);
     static void add_to_buffer(env_value* value, char key_char);
     static bool read_next_char(env_value* value, char key_char);
     static bool clear_newline_or_comment(std::istream& file, env_value* value, char key_char, read_result& ret_value);

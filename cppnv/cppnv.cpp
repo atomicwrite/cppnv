@@ -47,8 +47,8 @@ void test_control_codes(int& value1)
     skip_bom(tmp);
 
     std::vector<env_pair*> env_pairs;
-    std::map<std::string,env_pair *> pair_map;
-    env_reader::read_pairs(tmp, &pair_map);
+    //std::map<std::string,env_pair *> pair_map;
+    env_reader::read_pairs(tmp, &env_pairs);
     for (const auto value : env_pairs)
     {
         std::cout << *(value->key->key) << " = " << *(value->value->value) << std::endl;
@@ -61,9 +61,22 @@ void test_control_codes(int& value1)
         std::cout << *(pair->key->key) << " = |" << *(pair->value->value) << "|" <<std::endl;
     }
     tmp.close();
-    assert(env_pairs.size() == 1);
+    assert(env_pairs.size() == 7);
     assert(*env_pairs.at(0)->key->key == "a");
     assert(*env_pairs.at(0)->value->value == "\tb\n");
+    assert(*env_pairs.at(1)->key->key == "b");
+    assert(*env_pairs.at(1)->value->value == "\\\\");
+    assert(*env_pairs.at(2)->key->key == "c");
+    assert(*env_pairs.at(2)->value->value == "\\\\t");
+    assert(*env_pairs.at(3)->key->key == "d");
+    assert(*env_pairs.at(3)->value->value == "\\\\\t");
+    assert(*env_pairs.at(4)->key->key == "e");
+    assert(*env_pairs.at(4)->value->value == " \\ \\ \ \\ \\\\t");
+    assert(*env_pairs.at(5)->key->key == "f");
+    assert(*env_pairs.at(5)->value->value == " \\ \\ \b \\ \\\\t");
+    assert(*env_pairs.at(6)->key->key == "g");
+    assert(*env_pairs.at(6)->value->value == " \\ \\ \r \\ \\\\b\n");
+    
  
 }
 

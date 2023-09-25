@@ -59,6 +59,7 @@ int env_reader::read_pairs(std::istream& file, std::vector<env_pair*>* pairs)
 {
     int count = 0;
     auto buffer = std::string();
+    buffer.resize(100);
 
 
     auto expect_more = true;
@@ -268,7 +269,10 @@ bool env_reader::process_possible_control_character(env_value* value, const char
 {
     switch (key_char)
     {
+    case '\0':
+        return false;
     case 't':
+
         add_to_buffer(value, '\t');
         return true;
     case 'n':
@@ -288,16 +292,18 @@ bool env_reader::process_possible_control_character(env_value* value, const char
     }
 }
 
-bool env_reader::walk_back_slashes(env_value* value, char key_char)
+void env_reader::walk_back_slashes(env_value* value)
 {
-    if (value->back_slash_streak % 2 == 0)
+    const int total_backslash_pairs = value->back_slash_streak / 2; // how many \\ in a row
+
+    if (total_backslash_pairs > 0)
     {
-        value->value_index = value->value_index - value->back_slash_streak / 2;
-        return false; // we have a complete paired set of back slashes, walk the buffer back backSlashStreak/2
+        for (int i = 0; i < total_backslash_pairs; i++)
+        {
+            add_to_buffer(value, '\\');
+        }
+        value->back_slash_streak -= total_backslash_pairs * 2;
     }
-    value->back_slash_streak = 0;
-    //we have an attempt at a control character, evaluate value
-    return process_possible_control_character(value, key_char);
 }
 
 void env_reader::close_variable(env_value* value)
@@ -404,37 +410,47 @@ bool env_reader::walk_single_quotes(env_value* value)
     return false;
 }
 
+ 
+
 void env_reader::add_to_buffer(env_value* value, const char key_char)
 {
-    if (static_cast<size_t>(value->value_index) > value->value->size())
+    size_t size = value->value->size();
+    if (static_cast<size_t>(value->value_index) >= size)
     {
-        (*value->value)[value->value_index] = key_char;
+        if (size == 0)
+        {
+            size = 100;
+        }
+        value->value->resize(size * 150 / 100);
     }
-    else
-    {
-        value->value->push_back(key_char);
-    }
+    (*value->value)[value->value_index] = key_char;
     value->value_index++;
 }
 
 bool env_reader::read_next_char(env_value* value, const char key_char)
 {
-    if (!value->quoted && !value->triple_quoted)
+    if (!value->quoted && !value->triple_quoted && value->back_slash_streak > 0)
     {
-        if (value->back_slash_streak > 0)
+        if (key_char != '\\')
         {
-            if (key_char != '\\')
+            walk_back_slashes(value);
+            if (value->back_slash_streak == 1)
+            // do we have an odd backslash out? ok, process control char
             {
-                walk_back_slashes(value, key_char);
+                value->back_slash_streak = 0;
+                if (process_possible_control_character(value, key_char))
+                {
+                    return true;
+                }
             }
-            return true;
         }
     }
     switch (key_char)
     {
     case '\\':
         value->back_slash_streak++;
-        break;
+
+        return true;
     case '{':
         add_to_buffer(value, key_char);
         if (!value->is_parsing_variable)
@@ -452,32 +468,23 @@ bool env_reader::read_next_char(env_value* value, const char key_char)
         return true;
     case '\'':
         value->single_quote_streak++;
-        break;
-    case '"':
-        value->double_quote_streak++;
-        break;
-
-    default:
-        add_to_buffer(value, key_char);
-
-
-        return true;
-    }
-
-    if (value->double_quote_streak > 0)
-    {
-        return walk_double_quotes(value);
-    }
-    if (value->single_quote_streak > 0)
-    {
         if (walk_single_quotes(value))
         {
             return true;
         }
+        return true;
+    case '"':
+        value->double_quote_streak++;
+        if (value->double_quote_streak > 0)
+        {
+            return walk_double_quotes(value);
+        }
+        return true;
+
+    default:
+        add_to_buffer(value, key_char);
+        return true;
     }
-
-
-    return false;
 }
 
 bool env_reader::clear_newline_or_comment(std::istream& file, env_value* value, char key_char,
@@ -520,7 +527,7 @@ env_reader::read_result env_reader::read_value(std::istream& file, env_value* va
         return end_of_stream_value;
     }
 
-
+    env_reader::read_result ret_val = success;
     while (file.good())
     {
         const std::istream::int_type int_ = file.get();
@@ -529,9 +536,10 @@ env_reader::read_result env_reader::read_value(std::istream& file, env_value* va
             break;
         }
         char key_char = static_cast<char>(int_);
-        env_reader::read_result ret_val;
+
         if (clear_newline_or_comment(file, value, key_char, ret_val))
-            return ret_val;
+            break;
+
 
         if (read_next_char(value, key_char) && file.good())
         {
@@ -555,6 +563,15 @@ env_reader::read_result env_reader::read_value(std::istream& file, env_value* va
             while (key_char != '\n');
         }
         break;
+    }
+    if (value->back_slash_streak > 0)
+    {
+        walk_back_slashes(value);
+        if (value->back_slash_streak == 1)
+
+        {
+            process_possible_control_character(value, '\0');
+        }
     }
     return success;
 }
