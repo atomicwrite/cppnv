@@ -105,9 +105,4 @@ yes=no
 * \\ Backslash
 
 
-## Caveats
-
-I'm not deleting the new strings I make yet. I use a single string as a buffer when reading in all the pairs
-as it reduces the resizes on strings. That string is then replaced when the key or value exits it's read. On
-calling finalize, if the string has variables it might or might not as mentioned above be optimal to count
-the displacement of string size the variables would cause over the placeholder and resize the string once and copy in.
+ 
