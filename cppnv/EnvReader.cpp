@@ -284,8 +284,14 @@ bool env_reader::process_possible_control_character(env_value* value, const char
     case '"':
         add_to_buffer(value, '"');
         return true;
+    case 'b':
+        add_to_buffer(value, '\b');
+        return true;
     case '\'':
         add_to_buffer(value, '\'');
+        return true;
+    case '\f':
+        add_to_buffer(value, '\f');
         return true;
     default:
         return false;
